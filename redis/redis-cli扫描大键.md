@@ -1,20 +1,20 @@
-#reids-cli 扫描大键
+# reids-cli 扫描大键
 
-###背景
+### 背景
 有时，由于前期业务redis键设置不合理（未设置过期时间或某个键过大），会造成redis内存接近用满状态或数据倾斜。因此这是需要找出redis中的大key以做处理。（前几天在工作中，采用redis-cli --bigkeys扫描时，发现qps剧增，why？？？）
 
-###指令
+### 指令
 redis-cli -h host -p port -a passport  --bigkeys
 
 
-###源码分析
+### 源码分析
 
-####版本
+#### 版本
 ```
 redis--3.0.7
 ```
 
-####处理流程
+#### 处理流程
 
 1、命令解析，根据--bigkeys执行相关函数
 ```
