@@ -40,4 +40,4 @@ master：192.168.0.1 6379 slave：192.168.0.2 6379
 23:26:19.854936 IP 192.168.0.2.30178 > 192.168.0.1.6379: Flags [.], ack 33, win 14100, length 0
 ```
 很显然，master向slave发送了相关的同步指令，其指令如下：
-![]()
+![](https://github.com/lvsz1/db/blob/master/redis/res/redis-masrer-set-name.png)
