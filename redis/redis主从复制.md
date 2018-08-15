@@ -44,4 +44,65 @@ master：192.168.0.1 6379 slave：192.168.0.2 6379
 
 ### 源码分析
 
+#### 版本
+```
+redis--3.0.7
+```
+
+#### 参数加载
+
+在配置主从时，需要在redis.conf文件中slaveof参数，配置类似如下：
+```
+slaveof 192.168.0.2 6379
+```
+redis在初始化参数时，如果不提供配置文件，主从状态的参数配置如下
+```
+server.repl_state = REDIS_REPL_NONE; //默认为master，不进行主从配置
+```
+如果指定了配置文件，并配置了slaveof参数，参数初始化如下(配置文件解析过滤到空行及'#'开头的配置，解析比nginx简单的多)：
+```
+...
+else if (!strcasecmp(argv[0],"slaveof") && argc == 3) {
+    slaveof_linenum = linenum;
+    server.masterhost = sdsnew(argv[1]);
+    server.masterport = atoi(argv[2]);
+    server.repl_state = REDIS_REPL_CONNECT;
+}
+...
+```
+ 通过slaveof配置，拿到master的ip:addr，并将主从复制状态置为 REDIS_REPL_CONNECT 
+
+其中，redis的主从复制状态有如下三种类型：
+```
+#define REDIS_REPL_NONE 0 /* No active replication */
+#define REDIS_REPL_CONNECT 1 /* Must connect to master */
+#define REDIS_REPL_CONNECTING 2 /* Connecting to master */
+```
+
+当然，还有一些主从的其它配置参数。
+
+#### 涉及的cron
+初始化时，会初始化一个时间事件，周期处理serverCron，初始化如下：
+```
+//主要采用select、poll、epoll设置超时，超时后执行（这里第一次超时时间是1ms，后边超时时间为 1000/server.hz，其中server.hz 默认为10，也就是serverCron默认是100ms执行一次）
+if(aeCreateTimeEvent(server.el, 1, serverCron, NULL, NULL) == AE_ERR) {
+    redisPanic("Can't create the serverCron time event.");
+    exit(1);
+}
+```
+
+超时后，执行serverCron，并更新超时时间；（这里时间管理采用链表，找到最近的超时时间，并在wait时设置。如果在超时之前有事件过来，处理事件后悔检查当前时间是否已到达设定的超时时间，以确保超时事件的执行）
+```
+retval = te->timeProc(eventLoop, id, te->clientData); //获取新的超时时间
+...
+if (retval != AE_NOMORE) {
+    aeAddMillisecondsToNow(retval,&te->when_sec,&te->when_ms);
+} else {
+    aeDeleteTimeEvent(eventLoop, id);
+}
+```
+
+在serverCron到底做了哪些与主从复制相关的东西呢？
+
+
 TODO。。。
