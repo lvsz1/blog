@@ -91,7 +91,10 @@ if(aeCreateTimeEvent(server.el, 1, serverCron, NULL, NULL) == AE_ERR) {
 }
 ```
 
-超时后，执行serverCron，并更新超时时间；（这里时间管理采用链表，找到最近的超时时间，并在wait时设置。如果在超时之前有事件过来，处理事件后悔检查当前时间是否已到达设定的超时时间，以确保超时事件的执行）
+超时后，执行serverCron，并更新超时时间；
+（这里时间管理采用链表，找到最近的超时时间，并在wait时设置。
+如果在超时之前有事件过来，处理事件后会检查当前时间是否已到达设定的超时时间，
+以确保超时事件的执行）
 ```
 retval = te->timeProc(eventLoop, id, te->clientData); //获取新的超时时间
 ...
