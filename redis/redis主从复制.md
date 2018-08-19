@@ -105,15 +105,15 @@ if (retval != AE_NOMORE) {
 }
 ```
 
-在serverCron到底做了哪些与主从复制相关的东西呢？
-每个1s执行 replicationCron（）函数，其中该函数进行如下操作：
-1、根据配置，进行超时检测（连接、读写超时、心跳超时检测），当然如果还没有连接master，还是要连接master的；
-2、每隔1s，slave向master发送 REPLCONF、ACK，告诉master I’m alive！
-3、每隔server.repl_ping_slave_period秒（默认为10秒），master向slaves发送 PING 心跳包；
-4、如果slave如果处于预同步阶段，master向slave发送"\n"(这个地方没有看懂？？？)；
-5、master检测超时时间，断开超时的的连接；
+在serverCron到底做了哪些与主从复制相关的东西呢？  
+每个1s执行 replicationCron（）函数，其中该函数进行如下操作：    
+1、根据配置，进行超时检测（连接、读写超时、心跳超时检测），当然如果还没有连接master，还是要连接master的；  
+2、每隔1s，slave向master发送 REPLCONF、ACK，告诉master I’m alive！  
+3、每隔server.repl_ping_slave_period秒（默认为10秒），master向slaves发送 PING 心跳包；  
+4、如果slave如果处于预同步阶段，master向slave发送"\n"(这个地方没有看懂？？？)；  
+5、master检测超时时间，断开超时的的连接；  
 
-从serverCron代码来看，抓包抓到的东西主要用于master、slave之间的保活：master ping， slave ack。
+从serverCron代码来看，抓包抓到的东西主要用于master、slave之间的保活：master ping， slave ack。  
 
 
 
