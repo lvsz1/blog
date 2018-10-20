@@ -3,6 +3,7 @@
 ### 背景 
 以前听说过pipeline和multi，但不是很明白其中的原理，一直以为是一个东西；前段时间，在写go代码的时候，由于某个redis操作需要用到批量操作，才知道这两个操作还是有很大不同的，有不同的应用场景。
 
+### 源码分析
 #### 版本
 ```
 redis--3.0.7
@@ -176,7 +177,7 @@ if (c->flags & REDIS_MULTI &&
         handleClientsBlockedOnLists();
 }
 ```
-如果是multi操作，会调用queueMultiCommand()将指令在server端进行缓存，知道接受的EXEC时才进行执行。
+如果是multi操作，会调用queueMultiCommand()将指令在server端进行缓存，直到接受的EXEC时才进行执行。
 
 3、接收到exec指令后，执行execCommand(),执行multi/.../exec之间接收到的指令
 ```
@@ -204,9 +205,9 @@ if (c->flags & REDIS_MULTI &&
 ```
 
 ### 结论
-1、pipeline是客户端缓存，multi是服务端缓存；
-2、pipeline不能保证事务执行；multi保证事务执行（注意，这里的事务执行，并不是在PHP代码执行multi、exec时，redis server不处理其它client端操作；而是在redis server 接收到exec后，redis server事务执行multi、exec之间的指令，这个时候不会执行其它client端的操作；
-3、pipeline和multi针对的问题不同：pipeline主要针对解决批量指令多次tcp传输造成的网络传输效率低下问题（类似tcp的negle算法，多条指令批量传输）；multi主要针对批量指令原子性执行问题（每条指令仍单次传输，没有改善网络传输效率）；
+1、pipeline是客户端缓存，multi是服务端缓存；    
+2、pipeline不能保证事务执行；multi保证事务执行（注意，这里的事务执行，并不是在PHP代码执行multi、exec时，redis server不处理其它client端操作；而是在redis server 接收到exec后，redis server事务执行multi、exec之间的指令，这个时候不会执行其它client端的操作；      
+3、pipeline和multi针对的问题不同：pipeline主要针对解决批量指令多次tcp传输造成的网络传输效率低下问题（类似tcp的negle算法，多条指令批量传输）；multi主要针对批量指令原子性执行问题（每条指令仍单次传输，没有改善网络传输效率）；  
 
 另外，至于pipeline 单包发送指令是否是事务执行，可以读读源码~
 
