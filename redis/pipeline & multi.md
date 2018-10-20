@@ -119,7 +119,7 @@ while(sdslen(c->querybuf)) {
 
 可以看上边的代码（很多地方确实看不懂~），得出一个不确定的结论（自己的理解）：     
 不管是pipeline方式还是multi方式，只要单次的tcp包中传输了多个完整的指令，redis-server都会事务执行该tcp包中的所有指令；  
-但即使将redis client 可以将多个指令缓存起来（比如用户空间缓存，然后flush到内核空间)，由于内核空间tcp缓冲区的数据不确定什么时候清空（tcp拆包、粘包等，可以看tcp相关协议）,不能确保redis-server单个tcp包获得所有的缓冲指令，因此pipeline方式不能确保指令是事务执行的；为了确保批量指令的事务执行，这是multi起作用了。   
+但即使将redis client 可以将多个指令缓存起来（比如用户空间缓存，然后flush到内核空间)，由于内核空间tcp缓冲区的数据不确定什么时候清空（tcp拆包、粘包等，可以看tcp相关协议）,不能确保redis-server单个tcp包获得所有的缓冲指令，因此pipeline方式不能确保指令是事务执行的；为了确保批量指令的事务执行，这时multi起作用了。   
 
 所以，写pipeline时，单个pipe操作，也不要过多的指令~
 
@@ -206,6 +206,7 @@ if (c->flags & REDIS_MULTI &&
 ### 结论
 1、pipeline是客户端缓存，multi是服务端缓存；
 2、pipeline不能保证事务执行；multi保证事务执行（注意，这里的事务执行，并不是在PHP代码执行multi、exec时，redis server不处理其它client端操作；而是在redis server 接收到exec后，redis server事务执行multi、exec之间的指令，这个时候不会执行其它client端的操作；
+3、pipeline和multi针对的问题不同：pipeline主要针对解决批量指令多次tcp传输造成的网络传输效率低下问题（类似tcp的negle算法，多条指令批量传输）；multi主要针对批量指令原子性执行问题（每条指令仍单次传输，没有改善网络传输效率）；
 
 另外，至于pipeline 单包发送指令是否是事务执行，可以读读源码~
 
