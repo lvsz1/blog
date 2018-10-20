@@ -1,7 +1,7 @@
 #### pipeline 与 multi 区别 
 
 ### 背景 
-以前听说过pipeline和multi，但不是很明白其中的原理，一直以为是一个东西；前段时间，在写go代码的时候，由于某个redis操作需要用到批量操作，才知道这两个操作还会有很大不同的，有不同的应用场景。
+以前听说过pipeline和multi，但不是很明白其中的原理，一直以为是一个东西；前段时间，在写go代码的时候，由于某个redis操作需要用到批量操作，才知道这两个操作还是有很大不同的，有不同的应用场景。
 
 ### pipeline 
 #### client 操作
@@ -26,12 +26,12 @@ array(2) {
 
 2、抓包，如图所示：
 
-redis server 接受到的东西：
+redis server 接收到的东西：
 ```
 *3\r\n$3\r\nSET\r\n$4\r\nname\r\n$8\r\nzhangsan\r\n*3\r\n$3\r\nSET\r\n$3\r\nage\r\n$2\r\n20\r\n
 ```
 
-3、php redis扩展代码没有看过，单看过一点go redis client库的代码，pipeline 实现过程类似如下所示：
+3、php redis扩展代码没有看过，但看过一点go redis client库的代码，pipeline 实现过程类似如下所示：
 ```
 a、在conn中维护一个缓存，类似如下：
 var wb *bufio.Writer 
