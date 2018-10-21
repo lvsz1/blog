@@ -42,6 +42,42 @@ config get maxmemory-policy
 2) "volatile-lru"
 ```
 
+#### 数据淘汰策略类型
+主要有如下6中策略：
+```
+volatile-lru：从已设置过期时间的数据集（server.db[i].expires）中挑选最近最少使用 的数据淘汰
+volatile-ttl：从已设置过期时间的数据集（server.db[i].expires）中挑选将要过期的数 据淘汰
+volatile-random：从已设置过期时间的数据集（server.db[i].expires）中任意选择数据 淘汰
+allkeys-lru：从数据集（server.db[i].dict）中挑选最近最少使用的数据淘汰
+allkeys-random：从数据集（server.db[i].dict）中任意选择数据淘汰
+no-enviction（驱逐）：禁止驱逐数据
+```
+redis.conf 配置：
+```
+# MAXMEMORY POLICY: how Redis will select what to remove when maxmemory
+# is reached. You can select among five behaviors:
+#
+# volatile-lru -> remove the key with an expire set using an LRU algorithm
+# allkeys-lru -> remove any key according to the LRU algorithm
+# volatile-random -> remove a random key with an expire set
+# allkeys-random -> remove a random key, any key
+# volatile-ttl -> remove the key with the nearest expire time (minor TTL)
+# noeviction -> don't expire at all, just return an error on write operations
+#
+# Note: with any of the above policies, Redis will return an error on write
+#       operations, when there are no suitable keys for eviction.
+#
+#       At the date of writing these commands are: set setnx setex append
+#       incr decr rpush lpush rpushx lpushx linsert lset rpoplpush sadd
+#       sinter sinterstore sunion sunionstore sdiff sdiffstore zadd zincrby
+#       zunionstore zinterstore hset hsetnx hmset hincrby incrby decrby
+#       getset mset msetnx exec sort
+#
+# The default is:
+#
+# maxmemory-policy noeviction
+```
+
 ### 源码分析
 #### 版本
 ```
@@ -49,68 +85,8 @@ redis--3.0.7
 ```
 
 
-#### key过期策略
-1、每次执行相关操作时，如果发现key过期，则清除  
-在每次进行redis key相关操作时，会调用expireIfNeeded(),检测key是否过期，如果过期，则直接清除     
 
-2、周期检测并清除过期key     
-serverCron：每隔1000/server.hz ms执行一次，默认1s中执行10次      
-其中，清除key的周期函数在 redis.c activeExpireCycle()函数中，大概函数如下：     
-```
-void activeExpireCycle(int type) {
-	...
-	//单次清除过期key的最长时间， 默认25%周期执行时间
-    timelimit = 1000000*ACTIVE_EXPIRE_CYCLE_SLOW_TIME_PERC/server.hz/100;
-
-    ... 
-
-	//遍历指定个数的dbs
-    for (j = 0; j < dbs_per_call; j++) {
-        int expired;
-        redisDb *db = server.db+(current_db % server.dbnum);
-        current_db++;
-
-		...
-
-        do {
-
-            ...
-
-            if (num > ACTIVE_EXPIRE_CYCLE_LOOKUPS_PER_LOOP)
-                num = ACTIVE_EXPIRE_CYCLE_LOOKUPS_PER_LOOP;
-
-			// 默认从所有设定过期时间的keys中随机取20个，清除过期keys，并统计过期key个数
-            while (num--) {
-                dictEntry *de;
-                long long ttl;
-
-                if ((de = dictGetRandomKey(db->expires)) == NULL) break;
-                ttl = dictGetSignedIntegerVal(de)-now;
-                if (activeExpireCycleTryExpire(db,de,now)) expired++;
-                if (ttl < 0) ttl = 0;
-                ttl_sum += ttl;
-                ttl_samples++;
-            }
-
-			... 
-
-			// 每执行16次，则检测执行清理过期keys的时间是否大于timelimit，如果大于，则退出，防止执行时间过长影响redis响应等。
-            iteration++;
-            if ((iteration & 0xf) == 0) { /* check once every 16 iterations. */
-                long long elapsed = ustime()-start;
-                latencyAddSampleIfNeeded("expire-cycle",elapsed/1000);
-                if (elapsed > timelimit) timelimit_exit = 1;
-            }
-            if (timelimit_exit) return;
-            
-            // 如果随机的keys中，过期key比例低于25%，则退出
-        } while (expired > ACTIVE_EXPIRE_CYCLE_LOOKUPS_PER_LOOP/4);
-    }
-}
-```
-由代码中可以看出：   
-1、周期检测清除过期key的执行时间不会超过周期时间的25%，以每秒执行10cron为例，每次清除key的时间不会超过 25ms；
-2、周期清除key时，在随机获取的keys中，如果过期keys占随机keys比例不超过25%时，则退出清除；
+#### 数据淘汰策略
 
 
 #### 参考资料
