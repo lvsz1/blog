@@ -42,6 +42,12 @@ config get maxmemory-policy
 2) "volatile-lru"
 ```
 
+查看因最大内存容量限制而被驱逐（evict）的键数量
+```
+info 
+查看evicted_keys信息：
+```
+
 #### 数据淘汰策略类型
 主要有如下6中策略：
 ```
