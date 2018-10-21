@@ -31,7 +31,8 @@ array(2) {
 ```
 
 2、抓包，如图所示：
-
+![](https://github.com/lvsz1/db/blob/master/redis/res/pipeline.png)
+![](https://github.com/lvsz1/db/blob/master/redis/res/pipeline_response.png)
 redis server 接收到的东西：
 ```
 *3\r\n$3\r\nSET\r\n$4\r\nname\r\n$8\r\nzhangsan\r\n*3\r\n$3\r\nSET\r\n$3\r\nage\r\n$2\r\n20\r\n
@@ -136,7 +137,9 @@ $ret=$redis->exec();
 var_dump($ret);
 ```
 2、抓包
-
+![](https://github.com/lvsz1/db/blob/master/redis/res/multi_request1.png)
+在multi 和 exec之间 client与server单个发送redis指令 
+![](https://github.com/lvsz1/db/blob/master/redis/res/multi_request2.png)
 3、处理流程：一次发送一下指令
 ```
 a、MULTI 
