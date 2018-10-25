@@ -101,6 +101,26 @@ mem_allocator:jemalloc-3.6.0	#在编译时指定的， Redis 所使用的内存�
 ```
 
 
+### redis 主从相关
+** 1、查看主从连接状态 ** 
+```
+127.0.0.1:6379> info replication
+# Replication
+role:master
+connected_slaves:1
+slave0:ip=127.0.0.2,port=6379,state=online,offset=9093221,lag=1
+master_repl_offset:9093221
+repl_backlog_active:1
+repl_backlog_size:1048576
+repl_backlog_first_byte_offset:8044646
+repl_backlog_histlen:1048576
+
+可以查看lag的参数，如果是0或1则正常，否则处于异常状态
+可以对比slave与master 的offset值，判断slave和master是否已经完全数据一致；如果slave的offset小于master_repl_offset，说明slave没有完全同步master的数据。 
+
+如果想监控redis主从延时，可以通过slave 与 master 的offset字段来进行判断。
+```
+
 
 #### 参考资料
 问题排查总结：<https://www.cnblogs.com/mushroom/p/4738170.html>     

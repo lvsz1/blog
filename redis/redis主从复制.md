@@ -108,14 +108,100 @@ if (retval != AE_NOMORE) {
 在serverCron到底做了哪些与主从复制相关的东西呢？  
 每个1s执行 replicationCron（）函数，其中该函数进行如下操作：    
 1、根据配置，进行超时检测（连接、读写超时、心跳超时检测），当然如果还没有连接master，还是要连接master的；  
-2、每隔1s，slave向master发送 REPLCONF、ACK，告诉master I’m alive！  
+2、每隔1s，slave向master发送 REPLCONF、ACK，告诉master I’m alive！在这个过程中，slave向master发送了复制offset，master接收到slave offset后与会与自身的offset进行对比，如果小于master offset， 则进行同步未传输的指令。  
 3、每隔server.repl_ping_slave_period秒（默认为10秒），master向slaves发送 PING 心跳包；  
 4、如果slave如果处于预同步阶段，master向slave发送"\n"(这个地方没有看懂？？？)；  
 5、master检测超时时间，断开超时的的连接；  
 
 从serverCron代码来看，抓包抓到的东西主要用于master、slave之间的保活：master ping， slave ack。  
+REPLCONF 指令除了保活，还有另一个作用：该指令携带slave 复制偏移量，可以与master 复制偏移量进行对比，如果小于master offset，则master向slave同步缺失的指令，防止slave 与 master数据不一致。    
 
+#### sync/psync可以看相关资料
 
+#### 命令传播
+搜索了很多资料，有个大体的模样(不一定对)：   
+命令传播主要通过slave每个1s向master发送 replconf ack offset 实现；    
+1、slave cron每秒向master发送replconf指令，携带自身维护的复制偏移量offset 
+```
+void replicationSendAck(void) {
+    redisClient *c = server.master;
 
+    if (c != NULL) {
+        c->flags |= REDIS_MASTER_FORCE_REPLY;
+        addReplyMultiBulkLen(c,3);
+        addReplyBulkCString(c,"REPLCONF");
+        addReplyBulkCString(c,"ACK");
+        addReplyBulkLongLong(c,c->reploff);
+        c->flags &= ~REDIS_MASTER_FORCE_REPLY;
+    }
+}
+```
+2、master接收到replconf指令后，执行replconfCommand() -> putSlaveOnline(),向select/poll/epoll等注册写事件，执行sendReplyToClient()，将 master_offset - slave_offset 的数据传输给slave，用于同步；
+
+通过在1秒内执行两次 info replication，打印的信息可以支持这种结论(线上机器)：
+```
+> info replication
+# Replication
+role:master
+connected_slaves:3
+slave0:ip=10.142.114.94,port=6695,state=online,offset=1779926446588,lag=0  	#注意slave的offset为1779926446588
+slave1:ip=10.142.114.95,port=6695,state=online,offset=1779926446808,lag=0
+slave2:ip=10.138.114.37,port=6695,state=online,offset=1779926397560,lag=1
+master_repl_offset:1779926670799											#注意master的offset为1779926670799
+repl_backlog_active:1
+repl_backlog_size:2147483648
+repl_backlog_first_byte_offset:1777779187152
+repl_backlog_histlen:2147483648
+> info replication
+# Replication
+role:master
+connected_slaves:3
+slave0:ip=10.142.114.94,port=6695,state=online,offset=1779926446588,lag=0	#注意slave的offset为1779926446588
+slave1:ip=10.142.114.95,port=6695,state=online,offset=1779926446808,lag=0
+slave2:ip=10.138.114.37,port=6695,state=online,offset=1779926769491,lag=0
+master_repl_offset:1779926907818											#注意master的offset为1779926907818
+repl_backlog_active:1
+repl_backlog_size:2147483648
+repl_backlog_first_byte_offset:1777779424171
+repl_backlog_histlen:2147483648
+10.138.230.23:6695> config get min-slaves-to-write
+1) "min-slaves-to-write"
+2) "0"
+```
+两次的master offset不同（相差很多，说明这期间有很多write指令），但是slave的offset不变，也就间接说明了在执行两次 info replication期间，并没有进行主从同步（等待某个时机批量同步）；   
+
+但是又有一种矛盾的地方，当我执行下边代码时：
+```
+$redis->set("name", "zhangsan");
+$redis->set("age", 20);
+```
+按道理讲，这两次的指令放在master复制缓冲区，接收到 slave 的replconf后，批量给slave的，但是抓包发现，这两个指令是分开传的（不是同一个tcp包）。所以这个地方还是比较疑惑。。。
+
+额。。。这个地方是看不懂了，这辈子也看不懂啦。。。。。。。有时间在搜搜资料吧
+
+### 主从复制相关conf参数
+
+** 1、repl-backlog-size 复制积压缓存大小 **      
+该参数主要用于指定master缓存指令的空间大小，目的是当slave与master断连后，slave根据自己维护的offset与master维护的offset进行对比，然后进行增量同步。缓冲区的大小最小为：slave于master的平均断连second * master每秒接收的write指令量。该值可以通过如下指令查看：
+```
+127.0.0.1:6379> info replication
+# Replication
+role:master
+connected_slaves:1
+slave0:ip=127.0.0.2,port=6379,state=online,offset=9093221,lag=1
+master_repl_offset:9093221
+repl_backlog_active:1
+repl_backlog_size:1048576
+repl_backlog_first_byte_offset:8044646
+repl_backlog_histlen:1048576
+```     
+
+** 2、免持久化复制 ** 
+```
+repo-diskless-sync yes  # yes表示开启在复制时不用写磁盘模式（不用写磁盘生成dump.rdbw文件)；no表示关闭  
+```
 
 TODO。。。
+
+#### 参考资料
+<http://www.cnblogs.com/kismetv/p/9236731.html>
