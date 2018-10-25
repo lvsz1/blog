@@ -146,7 +146,7 @@ void call(redisClient *c, int flags) {
 ```
 propagate()调用replicationFeedSlaves()依次同步各个slave。    
 
-** 注意 **      
+**注意**      
  master在执行每个写指令的时候，先本地执行指令，然后同步的将指令写到client buffer中。但是，虽然同步写入buffer，真正给slave传输信息的时间是不确定，因为redis的写操作采用事件的机制，在每次的addReply时，将写事件注册到select/poll/epoll等（写事件中，回复client、命令传播给slave的先后顺序是不一定的），事件触发后将buffer信息flush到内核的tcp发送缓冲区，然后再是tcp传输。所以说，redis主从复制是异步的。
 
 
@@ -173,7 +173,7 @@ void replicationSendAck(void) {
 
 ### 主从复制相关conf参数
 
-** 1、repl-backlog-size 复制积压缓存大小 **      
+**1、repl-backlog-size 复制积压缓存大小 **      
 该参数主要用于指定master缓存指令的空间大小，目的是当slave与master断连后，slave根据自己维护的offset与master维护的offset进行对比，然后进行增量同步。缓冲区的大小最小为：slave于master的平均断连second * master每秒接收的write指令量。该值可以通过如下指令查看：
 ```
 127.0.0.1:6379> info replication
@@ -188,7 +188,7 @@ repl_backlog_first_byte_offset:8044646
 repl_backlog_histlen:1048576
 ```     
 
-** 2、免持久化复制 ** 
+**2、免持久化复制 ** 
 ```
 repo-diskless-sync yes  # yes表示开启在复制时不用写磁盘模式（不用写磁盘生成dump.rdbw文件)；no表示关闭  
 ```
