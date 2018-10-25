@@ -147,7 +147,7 @@ connected_slaves:3
 slave0:ip=10.142.114.94,port=6695,state=online,offset=1779926446588,lag=0  	#注意slave的offset为1779926446588
 slave1:ip=10.142.114.95,port=6695,state=online,offset=1779926446808,lag=0
 slave2:ip=10.138.114.37,port=6695,state=online,offset=1779926397560,lag=1
-master_repl_offset:1779926670799											#注意master的offset为1779926670799
+master_repl_offset:1779926670799						                     #注意master的offset为1779926670799
 repl_backlog_active:1
 repl_backlog_size:2147483648
 repl_backlog_first_byte_offset:1777779187152
@@ -159,7 +159,7 @@ connected_slaves:3
 slave0:ip=10.142.114.94,port=6695,state=online,offset=1779926446588,lag=0	#注意slave的offset为1779926446588
 slave1:ip=10.142.114.95,port=6695,state=online,offset=1779926446808,lag=0
 slave2:ip=10.138.114.37,port=6695,state=online,offset=1779926769491,lag=0
-master_repl_offset:1779926907818											#注意master的offset为1779926907818
+master_repl_offset:1779926907818						                     #注意master的offset为1779926907818
 repl_backlog_active:1
 repl_backlog_size:2147483648
 repl_backlog_first_byte_offset:1777779424171
