@@ -119,8 +119,40 @@ REPLCONF 指令除了保活，还有另一个作用：该指令携带slave 复�
 #### sync/psync可以看相关资料
 
 #### 命令传播
-搜索了很多资料，有个大体的模样(不一定对)：   
-命令传播主要通过slave每个1s向master发送 replconf ack offset 实现；    
+在redis.c processCommand()中，调用call(), 先master处理，然后发送指令，同步给各个slave
+```
+void call(redisClient *c, int flags) {
+	...
+
+    //执行相关指令
+    c->flags &= ~(REDIS_FORCE_AOF|REDIS_FORCE_REPL);
+    redisOpArrayInit(&server.also_propagate);
+    dirty = server.dirty;
+    start = ustime();
+    c->cmd->proc(c);
+
+    //判断指令是否需要aof及同步给slave，如果需要，则进行命令传播
+    if (flags & REDIS_CALL_PROPAGATE) {
+        int flags = REDIS_PROPAGATE_NONE;
+
+        if (c->flags & REDIS_FORCE_REPL) flags |= REDIS_PROPAGATE_REPL;
+        if (c->flags & REDIS_FORCE_AOF) flags |= REDIS_PROPAGATE_AOF;
+        if (dirty)
+            flags |= (REDIS_PROPAGATE_REPL | REDIS_PROPAGATE_AOF);
+        if (flags != REDIS_PROPAGATE_NONE)
+            propagate(c->cmd,c->db->id,c->argv,c->argc,flags);
+    }
+}
+```
+propagate()调用replicationFeedSlaves()依次同步各个slave。    
+
+** 注意 ** 
+master在执行每个写指令的时候，先本地执行指令，然后同步的将指令写到client buffer中。但是，虽然同步写入buffer，真正给slave传输信息的时间是不确定，因为redis的写操作采用事件的机制，在每次的addReply时，将写事件注册到select/poll/epoll等（写事件中，回复client、命令传播给slave的先后顺序是不一定的），事件触发后将buffer信息flush到内核的tcp发送缓冲区，然后再是tcp传输。所以说，redis主从复制是异步的。
+
+
+
+#### replconf 作用   
+为了确保主从数据一致，redis slave每隔1s向master发送 replconf ack offset ；    
 1、slave cron每秒向master发送replconf指令，携带自身维护的复制偏移量offset 
 ```
 void replicationSendAck(void) {
@@ -138,46 +170,6 @@ void replicationSendAck(void) {
 ```
 2、master接收到replconf指令后，执行replconfCommand() -> putSlaveOnline(),向select/poll/epoll等注册写事件，执行sendReplyToClient()，将 master_offset - slave_offset 的数据传输给slave，用于同步；
 
-通过在1秒内执行两次 info replication，打印的信息可以支持这种结论(线上机器)：
-```
-> info replication
-# Replication
-role:master
-connected_slaves:3
-slave0:ip=10.142.114.94,port=6695,state=online,offset=1779926446588,lag=0  	#注意slave的offset为1779926446588
-slave1:ip=10.142.114.95,port=6695,state=online,offset=1779926446808,lag=0
-slave2:ip=10.138.114.37,port=6695,state=online,offset=1779926397560,lag=1
-master_repl_offset:1779926670799						                     #注意master的offset为1779926670799
-repl_backlog_active:1
-repl_backlog_size:2147483648
-repl_backlog_first_byte_offset:1777779187152
-repl_backlog_histlen:2147483648
-> info replication
-# Replication
-role:master
-connected_slaves:3
-slave0:ip=10.142.114.94,port=6695,state=online,offset=1779926446588,lag=0	#注意slave的offset为1779926446588
-slave1:ip=10.142.114.95,port=6695,state=online,offset=1779926446808,lag=0
-slave2:ip=10.138.114.37,port=6695,state=online,offset=1779926769491,lag=0
-master_repl_offset:1779926907818						                     #注意master的offset为1779926907818
-repl_backlog_active:1
-repl_backlog_size:2147483648
-repl_backlog_first_byte_offset:1777779424171
-repl_backlog_histlen:2147483648
-10.138.230.23:6695> config get min-slaves-to-write
-1) "min-slaves-to-write"
-2) "0"
-```
-两次的master offset不同（相差很多，说明这期间有很多write指令），但是slave的offset不变，也就间接说明了在执行两次 info replication期间，并没有进行主从同步（等待某个时机批量同步）；   
-
-但是又有一种矛盾的地方，当我执行下边代码时：
-```
-$redis->set("name", "zhangsan");
-$redis->set("age", 20);
-```
-按道理讲，这两次的指令放在master复制缓冲区，接收到 slave 的replconf后，批量给slave的，但是抓包发现，这两个指令是分开传的（不是同一个tcp包）。所以这个地方还是比较疑惑。。。
-
-额。。。这个地方是看不懂了，这辈子也看不懂啦。。。。。。。有时间在搜搜资料吧
 
 ### 主从复制相关conf参数
 
