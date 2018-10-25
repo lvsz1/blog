@@ -173,7 +173,7 @@ void replicationSendAck(void) {
 
 ### 主从复制相关conf参数
 
-**1、repl-backlog-size 复制积压缓存大小 **         
+1、repl-backlog-size 复制积压缓存大小        
 该参数主要用于指定master缓存指令的空间大小，目的是当slave与master断连后，slave根据自己维护的offset与master维护的offset进行对比，然后进行增量同步。缓冲区的大小最小为：slave于master的平均断连second * master每秒接收的write指令量。该值可以通过如下指令查看：
 ```
 127.0.0.1:6379> info replication
@@ -187,7 +187,7 @@ repl_backlog_size:1048576
 repl_backlog_first_byte_offset:8044646
 repl_backlog_histlen:1048576
 ```     
-**2、免持久化复制 ** 
+2、免持久化复制 
 ```
 repo-diskless-sync yes  # yes表示开启在复制时不用写磁盘模式（不用写磁盘生成dump.rdbw文件)；no表示关闭  
 ```
