@@ -146,8 +146,8 @@ void call(redisClient *c, int flags) {
 ```
 propagate()调用replicationFeedSlaves()依次同步各个slave。    
 
-** 注意 ** 
-master在执行每个写指令的时候，先本地执行指令，然后同步的将指令写到client buffer中。但是，虽然同步写入buffer，真正给slave传输信息的时间是不确定，因为redis的写操作采用事件的机制，在每次的addReply时，将写事件注册到select/poll/epoll等（写事件中，回复client、命令传播给slave的先后顺序是不一定的），事件触发后将buffer信息flush到内核的tcp发送缓冲区，然后再是tcp传输。所以说，redis主从复制是异步的。
+** 注意 **      
+ master在执行每个写指令的时候，先本地执行指令，然后同步的将指令写到client buffer中。但是，虽然同步写入buffer，真正给slave传输信息的时间是不确定，因为redis的写操作采用事件的机制，在每次的addReply时，将写事件注册到select/poll/epoll等（写事件中，回复client、命令传播给slave的先后顺序是不一定的），事件触发后将buffer信息flush到内核的tcp发送缓冲区，然后再是tcp传输。所以说，redis主从复制是异步的。
 
 
 
