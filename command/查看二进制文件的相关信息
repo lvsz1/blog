@@ -1,0 +1,21 @@
+# 查看二进制执行文件的相关信息
+
+
+### strings 
+作用：
+```
+strings - print the strings of printable characters in files.
+即打印文件中可打印的字符串，不只是针对二进制文件
+```
+
+用途：
+```
+1、查看指定的代码是否编译到二级制文件中；
+strings file | grep '特定字段'
+
+2、查看特定信息
+例如在go中，可查看版本信息  strings file | grep 'go1\.'
+
+```
+
+
